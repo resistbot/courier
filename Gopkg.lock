@@ -71,6 +71,12 @@
   version = "v0.4.0"
 
 [[projects]]
+  name = "github.com/dgrijalva/jwt-go"
+  packages = ["."]
+  revision = "06ea1031745cb8b3dab3f6a236daf2b0aa468b7e"
+  version = "v3.2.0"
+
+[[projects]]
   name = "github.com/evalphobia/logrus_sentry"
   packages = ["."]
   revision = "13ba9278e2adf1537fd94143a6b6a1c0dc008ac7"
@@ -310,6 +316,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a8dcb07b24c2ba931af0aafbe40af74c0ac944774ed98dceb47a72ab05f3afe1"
+  inputs-digest = "3df8bcec8ba5e039238d3828f588c6799bde6d6ef3f159d18347474ccbd59373"
   solver-name = "gps-cdcl"
   solver-version = 1
