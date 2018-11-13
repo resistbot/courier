@@ -44,7 +44,7 @@ type handler struct {
 }
 
 func newHandler() courier.ChannelHandler {
-	return &handler{handlers.NewBaseHandler(courier.ChannelType("AC"), "Apple Business Chat")}
+	return &handler{handlers.NewBaseHandler(courier.ChannelType("ABC"), "Apple Business Chat")}
 }
 
 func (h *handler) Initialize(s courier.Server) error {
@@ -139,9 +139,9 @@ type interactiveDataRef struct {
 func (h *handler) receiveMessage(ctx context.Context, channel courier.Channel, w http.ResponseWriter, r *http.Request) ([]courier.Event, error) {
 
 	// make sure we have config keys
-	secretKey := channel.StringConfigForKey(courier.ConfigSecret, "")
-	if secretKey == "" {
-		return nil, handlers.WriteAndLogRequestError(ctx, h, channel, w, r, fmt.Errorf("missing secretKey config for AC channel"))
+	authSecret := channel.StringConfigForKey(courier.ConfigAPIKey, "")
+	if authSecret == "" {
+		return nil, handlers.WriteAndLogRequestError(ctx, h, channel, w, r, fmt.Errorf("missing api_key config for AC channel"))
 	}
 
 	cspID := channel.StringConfigForKey(configCSPID, "")
@@ -174,7 +174,7 @@ func (h *handler) receiveMessage(ctx context.Context, channel courier.Channel, w
 
 	// 2. Verify Authorization
 	// CSP-ID
-	// secretKey
+	// authSecret
 
 	reqToken := r.Header.Get(headerAuthorization)
 	splitToken := strings.Split(reqToken, " ")
@@ -182,7 +182,7 @@ func (h *handler) receiveMessage(ctx context.Context, channel courier.Channel, w
 		return nil, handlers.WriteAndLogRequestError(ctx, h, channel, w, r, fmt.Errorf("Authorization header must be in the format Bearer <token>"))
 	}
 	reqToken = splitToken[1]
-	if err := validateToken(reqToken, cspID, secretKey); err != nil {
+	if err := validateToken(reqToken, cspID, authSecret); err != nil {
 		return nil, handlers.WriteAndLogRequestError(ctx, h, channel, w, r, errors.Wrap(err, "Invalid Token:"))
 	}
 
@@ -211,7 +211,7 @@ func (h *handler) receiveMessage(ctx context.Context, channel courier.Channel, w
 
 // TODO: Move this to github.com/nyaruka/gocommon/urns
 func newAppleBusinessChatURN(identifier string) (urns.URN, error) {
-	AppleBusinessChatScheme := "applebusinesschat"
+	AppleBusinessChatScheme := "applechat"
 	return urns.NewURNFromParts(AppleBusinessChatScheme, identifier, "", "")
 }
 
@@ -219,9 +219,9 @@ func newAppleBusinessChatURN(identifier string) (urns.URN, error) {
 func (h *handler) SendMsg(ctx context.Context, msg courier.Msg) (courier.MsgStatus, error) {
 
 	// make sure we have config keys
-	secretKey := msg.Channel().StringConfigForKey(courier.ConfigSecret, "")
-	if secretKey == "" {
-		return nil, fmt.Errorf("missing secretKey config for AC channel")
+	authSecret := msg.Channel().StringConfigForKey(courier.ConfigAPIKey, "")
+	if authSecret == "" {
+		return nil, fmt.Errorf("missing api_key config for AC channel")
 	}
 
 	cspID := msg.Channel().StringConfigForKey(configCSPID, "")
@@ -240,7 +240,7 @@ func (h *handler) SendMsg(ctx context.Context, msg courier.Msg) (courier.MsgStat
 	status := h.Backend().NewMsgStatusForID(msg.Channel(), msg.ID(), courier.MsgErrored)
 
 	// get auth token
-	authToken, err := generateAuthToken(cspID, secretKey)
+	authToken, err := getAuthToken(cspID, authSecret)
 	if err != nil {
 		return status, err
 	}
@@ -296,14 +296,14 @@ var (
 	muAuthToken         *sync.RWMutex //goroutine safe token access
 )
 
-// generateAuthToken creates or re-uses a cached valid JWT with valid Apple Business Chat claims
+// getAuthToken creates or re-uses a cached valid JWT with valid Apple Business Chat claims
 //
 // Valid Claims:
 //"alg" - A string identifying the algorithm used to encode the payload.
 //"aud" - A string, or array of strings, identifying the recipients of the JWT. The value should be a string when the JWT has one recipient; otherwise, it should be an array of strings where each string represents a recipient. The aud value is always the CSP ID when exchanging messages with Business Chat.
 //"iss" - A string identifying the principal that issued the JWT. The value is always the CSP ID when exchanging messages with Business Chat.
 //"iat" - A numeric date—that is, an integer—identifying the time at which the JWT was issued. The value is the number of seconds from 1970-01-01T00:00:00Z UTC until the specified UTC date and time, ignoring leap seconds. For more information, see the Terminology section in RFC 7519.
-func generateAuthToken(cspid string, secretKey string) (string, error) {
+func getAuthToken(cspid string, authSecret string) (string, error) {
 	// Token older than 1 hour? expire
 	oneHourAgo := time.Now().Add(-time.Minute * 55)
 
@@ -327,7 +327,7 @@ func generateAuthToken(cspid string, secretKey string) (string, error) {
 			"iss": cspid,
 		})
 
-		tokenString, err := tok.SignedString(secretKey)
+		tokenString, err := tok.SignedString(authSecret)
 		if err != nil {
 			return "", err
 		}
@@ -341,7 +341,7 @@ func generateAuthToken(cspid string, secretKey string) (string, error) {
 }
 
 // validateToken verifies a JWT
-func validateToken(tokenString string, cspid string, secretKey string) error {
+func validateToken(tokenString string, cspid string, authSecret string) error {
 
 	// Parse takes the token string and a function for looking up the key. The latter is especially
 	// useful if you use multiple keys for your application.  The standard is to use 'kid' in the
@@ -351,8 +351,12 @@ func validateToken(tokenString string, cspid string, secretKey string) error {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(secretKey), nil
+		return []byte(authSecret), nil
 	})
+
+	if err != nil {
+		return errors.Wrap(err, "Could not parse JWT Token")
+	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
 
