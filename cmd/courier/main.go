@@ -51,6 +51,7 @@ import (
 	_ "github.com/nyaruka/courier/handlers/wechat"
 	_ "github.com/nyaruka/courier/handlers/whatsapp"
 	_ "github.com/nyaruka/courier/handlers/yo"
+	_ "github.com/nyaruka/courier/handlers/zendesk"
 	_ "github.com/nyaruka/courier/handlers/zenvia"
 
 	// load available backends
