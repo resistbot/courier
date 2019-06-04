@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
+	// "net/http/httputil"
 	"net/url"
 	"strconv"
 	"time"
@@ -20,7 +20,7 @@ import (
 	"github.com/nyaruka/courier/handlers"
 	"github.com/nyaruka/courier/utils"
 	"github.com/nyaruka/gocommon/urns"
-	"github.com/sirupsen/logrus"
+	// "github.com/sirupsen/logrus"
 	// "github.com/pkg/errors"
 )
 
@@ -265,7 +265,7 @@ func (h *handler) SendMsg(ctx context.Context, msg courier.Msg) (courier.MsgStat
 	req.Header.Set("Accept", "application/json")
 	req.SetBasicAuth(username+"/token", authToken)
 
-	dump, _ := httputil.DumpRequest(req, true)
+	// dump, _ := httputil.DumpRequest(req, true)
 
 	// logrus.Debugf("Send Msg %s", dump)
 
